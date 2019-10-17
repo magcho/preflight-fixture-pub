@@ -27,15 +27,15 @@ Kwatec社のPreflight用のフィクスチャーライブラリの配布。
    
    Finderの設定により`/Applications`フォルダが表示されていないことがあります。一度Preflightを起動しDock上のPreflightアイコンを`Command ⌘`キーを押しながらクリックすることでインストールフォルダが開きます。
    
-   ![Alt Text](./src/img1.jpg ) 
+   ![Alt Text](./src/img1.png ) 
 2. PrefLight.appを右クリックし、パッケージの内容を表示をクリック
-   ![Alt Text](./src/img2.jpg ) 
+   ![Alt Text](./src/img2.png ) 
 
 3. フィクスチャーデータのフォルダにダウンロードしたファイルを追加
    `PrefLight.app/Contents/SharedSupport/Instruments`を開くとフィクスチャーのメーカー別にフォルダ分けされたフィクスチャーデータが表示されます。
    
    ダウンドードしたzipファイルを解凍し、中に入っているフォルダごと`Instruments`フォルダへ入れてください。
-   ![Alt Text](./src/img3.jpg ) 
+   ![Alt Text](./src/img3.png ) 
    
    既に`Instruments`内に同名のフォルダがある場合はフォルダの中の機材名のファイルを入れてください。
    
