@@ -1,6 +1,15 @@
 plinstrument:
 {
 calc:"
+/*
+version: v1.0.0
+author: magcho
+
+manufacture: STAGE EVOLUTION
+name: COLORBARLED2
+shop: https://www.soundhouse.co.jp/products/detail/item/212382/
+docs: https://www.soundhouse.co.jp/download/se/colorbarledii_v1.00.pdf
+*/
 // based on Ultra Bar 12
 
 #include  strobe
@@ -691,6 +700,17 @@ ctl:
 prm:
 {
   controls:
+	{
+	  type:selector;
+		id:pVer;
+		name:ver;
+		ini:0;
+		items:
+		{
+	    text:"v1.0.0";
+			value:0;
+    };
+  },
   {
     type:selector;
     id:pMod;

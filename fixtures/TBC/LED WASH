@@ -1,7 +1,14 @@
 plinstrument:
 {
 calc:"
+/*
+version: v1.0.0
+author: magcho
 
+manufacture: NO BRAND
+name: LED WASH
+shop: https://www.aliexpress.com/item/32971455218.html
+*/
 #include  colorconv
 #include  colorwheel
 #include  hsv
@@ -565,7 +572,7 @@ ctl:
         id:cTpt;
         name:"P/T Time";
         max:255;
-        ini:255;
+        ini:0;
       },
       {
         type:numeric;
@@ -684,7 +691,7 @@ ctl:
         id:cTpt;
         name:"P/T Time";
         max:255;
-        ini:255;
+        ini:0;
       },
       {
         type:numeric;
@@ -785,6 +792,17 @@ ctl:
 prm:
 {
   controls:
+	{
+	  type:selector;
+		id:pVer;
+		name:ver;
+		ini:0;
+		items:
+		{
+	    text:"v1.0.0";
+			value:0;
+    };
+  },
   {
     type:check;
     id:pRPn;
