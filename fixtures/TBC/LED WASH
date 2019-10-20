@@ -1,0 +1,815 @@
+plinstrument:
+{
+calc:"
+
+#include  colorconv
+#include  colorwheel
+#include  hsv
+#include  strobe
+
+// controls
+cDim;
+cZom;
+cPan;
+cTlt;
+cR;
+cG;
+cB;
+cW;
+cMod;
+cRA;
+cGA;
+cBA;
+cBlk;
+cFx;
+cMac;
+cStb;
+cRst;
+cSpd;
+cTpt;
+
+// parameters
+pRPn;
+pRTl;
+pCcl;
+pMod;
+
+// constants
+kPosY = 0.0;
+kDia = 0.189;
+kBaseWid = 0.165;
+kBaseHi = 0.071;
+kCenterHi = 0.249;
+kZBack = 0.077;
+kZFront = -0.083;
+kHeadWid = 0.222;
+kHeadHi = 0.222;
+
+kCnt = 1.5;
+kSource = IllumFaceIl(2556, 3, kDia, kCnt, Spread(kCnt, 0.1, 35));
+kWhite = (16000 - (2778 + 6222 + 1111)) / 16000;
+
+
+// protocol parameters
+CENTER[1] = kCenterHi;
+PAN;
+TILT;
+LIGHT;
+SHAPE;
+CTLS;
+
+PRM=1;
+CTL;
+
+
+// pan, tilt
+
+kPan = 540;
+kTilt = 270;
+kPanSpeedMax = kPan / 1.8;    // [deg/s]
+kTiltSpeedMax = kTilt / 0.65;  // [deg/s]
+kPanSpeedMin = kPan / 108;    // [deg/s]
+kTiltSpeedMin = kTilt / 56;  // [deg/s]
+
+gPan;
+gTilt;
+
+PanVal#
+(
+  (pRPn? -1 : 1) * (cPan / 256 - 0.5)
+);
+
+TiltVal#
+(
+  (pRTl? -1 : 1) * (cTlt / 256 - 0.5)
+);
+
+
+gLastPs = 1;
+gLastTs = 1;
+gCurPs = 0;
+gCurTs = 0;
+
+PanTiltTime#
+(
+  pd = kPan  * PanVal() - gPan;
+  td = kTilt * TiltVal() - gTilt;
+  mod = 0;
+
+  (gCurPs != gLastPs | gCurTs != gLastTs)?
+  (
+    mod = 1;
+  );
+  (pd != 0 | td != 0 | mod == 1)?  // change
+  (
+    // ps = kPanSpeedMax;
+    // ts = kTiltSpeedMax;
+    ps = gCurPs = ParamSqr(kPanSpeedMax, kPanSpeedMin, 0, 255, cTpt);
+    ts = gCurTs =  ParamSqr(kTiltSpeedMax, kTiltSpeedMin, 0, 255, cTpt);
+
+    gPan  += LimitChange($0, pd, ps);
+    gTilt += LimitChange($0, td, ts);
+    1
+  )
+  :
+  0
+);
+
+
+// shutter common
+
+kStrobeMin = 1.5;      // [Hz] (TF)
+kStrobeMax = 10;    // [Hz] (TF)
+kStrobeDur = 1 / 30;  // [s] (guess)
+
+kShutterPulseMin = 1 / 10;  // [1/s] (guess)
+kShutterPulseMax = 1 / 1;  // [1/s] (guess)
+
+
+
+
+
+// shutter
+
+gShutter;
+gStrobe[0];
+
+
+ShutterTime#
+(
+  (cStb < 4)?
+  (
+    gShutter = 1;
+  )
+  :(cStb < 96)?
+  (
+    ss = ParamSqr(kStrobeMin, kStrobeMax, 4, 95, cStb);
+    StrobeProgress(gStrobe, $0 * ss, $0 * kStrobeDur);
+    gShutter = gStrobe.ef;
+  )
+  :(cStb < 177|
+    cStb < 256)?
+  (
+    // ! - unsupport random strobe
+    ss = 5; // ! - constant strobe time
+    StrobeProgress(gStrobe, $0 * ss, $0 * kStrobeDur);
+    gShutter = gStrobe.ef;
+  );
+);
+
+
+// dimmer
+
+kDimmerSpeed = 100;    // [1/s] (guess, unrestricted)
+
+gDimmer;
+
+
+DimmerTime#
+(
+  gDimmer = cDim;
+);
+
+
+// zoom
+
+kFocusSpeed = 1 / 0.8;        // [1/s]
+kZoomSpeed = kFocusSpeed;
+
+gZoom;
+
+
+ZoomTime#
+(
+  gZoom += LimitChange($0, cZom / 255 - gZoom, kZoomSpeed);
+);
+
+
+
+
+
+
+
+gColor;
+
+
+ColorTime#
+(
+  (cMod == 0)?
+  (
+    (cMac < 50)?
+    (
+      gColor = Vec(cBlk[0].cR / 255, cBlk[0].cG / 255, cBlk[0].cB / 255, cBlk[0].cW / 255);
+    );
+  )
+  :(cMod == 1)?
+  (
+    (cMac < 50)?
+    (
+      // simplefy
+      color[0]  = Vec(cBlk[0].cR / 255, cBlk[0].cG / 255, cBlk[0].cB / 255, cBlk[0].cW / 255);
+      color[1]  = Vec(cBlk[1].cR / 255, cBlk[1].cG / 255, cBlk[1].cB / 255, cBlk[1].cW / 255);
+      color[2]  = Vec(cBlk[2].cR / 255, cBlk[2].cG / 255, cBlk[2].cB / 255, cBlk[2].cW / 255);
+
+      color[0] = VecAdd(color[0], color[1]);
+      color[0] = VecAdd(color[0], color[2]);
+
+      gColor = VecScale(color[0], 1 / 3);
+    );
+  );
+);
+
+
+// Macro
+/*
+kMacroColor[0] = VecAdd(
+  Vec(1, 0, 0, 0),
+  Vec(0, 0, 1, 0),
+  Vec(0, 0, 1, 0));
+kMacroColor[1] = VecAdd(
+  Vec(0, 0, 1, 0),
+  Vec(1 ,0, 0, 0),
+  Vec(1, 0, 0, 0));
+kMacroColor[2] = VecAdd(
+  Vec(0, 0, 0, 1),
+  Vec(1, 0, 0, 0),
+  Vec(1, 0, 0, 0));
+kMacroColor[3] = VecAdd(
+  Vec(0, 1, 0, 0),
+  Vec(1, 0, 0, 0),
+  Vec(1, 0, 0, 0));
+kMacroColor[4] = VecAdd(
+  Vec(0, 1, 0, 0),
+  Vec(1, 0, 0, 0),
+  Vec(0, 0, 1, 0));
+kMacroColor[5] = VecAdd(
+  Vec(0, 0, 0, 1),
+  Vec(0, 1, 0, 0),
+  Vec(1, 0, 0, 0));
+*/
+
+kMacroColor = Vec(
+  Vec(0.5, 0, 1, 0),
+  Vec(1, 0, 0.5, 0),
+  Vec(1, 0, 0, 1),
+  Vec(1, 0, 0, 0.5),
+  Vec(1, 0, 0, 0.5),
+  Vec(1, 0.8, 0.8, 0),
+  Vec(0, 1, 1, 1));
+
+kColorPallet = kMacroColor;
+kColorPallet[7]  = Vec(1, 0, 0, 0);
+kColorPallet[8]  = Vec(0, 1, 0, 0);
+kColorPallet[9]  = Vec(0, 0, 1, 0);
+kColorPallet[10] = Vec(0, 0, 0, 1);
+
+kColorPalletEx = kColorPallet;
+kColorPalletEx[11] = Vec(0,0,0,0);
+kColorPalletEx[12] = Vec(0,0,1,1);
+kColorPalletEx[13] = Vec(0,1,0,1);
+kColorPalletEx[14] = Vec(0,1,1,1);
+kColorPalletEx[15] = Vec(1,0,0,1);
+kColorPalletEx[16] = Vec(1,0,1,0);
+kColorPalletEx[17] = Vec(1,1,0,0);
+kColorPalletEx[18] = Vec(1,1,1,0);
+kColorPalletEx[19] = Vec(1,1,1,1);
+
+
+gMacroPhase;
+gLastColor;
+gCurColor;
+
+kMacroMin = 0.6; // [Hz] (guess)
+kMacroMax = 4; // [Hz] (guess)
+
+kColorPalletMin = 0;
+kColorPalletMax = 10;
+
+MacroColor#
+(
+  (cMac < 50)?
+  (
+    // rgbw dimming
+  )
+  :(cMac < 100)?
+  (
+    (cFx < 175)?
+    (
+      // EFFECT1-6 static color pattern
+      // 0-24, 25-49, 50-74, 75-124(x_x), 125-149, 150-174
+      gColor = kMacroColor[floor(cFx / 25)];
+    )
+    :(cFx < 200)?
+    (
+      // EFFECT7 random color change
+      macroMax = 4;  // [Hz]
+      macroMix = 0.6; // [Hz]
+      ps = ParamSqr(macroMax, macroMin, 0, 255, cSpd); // fast to slow
+      gMacroPhase += $0 * ps;
+      (1 <= gMacroPhase)?
+      (
+        gLastColor = gCurColor;
+        @(gLastColor == gCurColor)
+        (
+          gCurColor = floor(rand() * 10);
+        );
+        gMacroPhase = Cycle(gMacroPhase);
+        gColor = kColorPallet[gCurColor];
+      );
+    )
+    :(cFx < 225)?
+    (
+      // EFFECT8 raindow color cahnge
+      macroMax = 0.07;  // [Hz]
+      macroMin = 0.04;  // [Hz]
+      ps = ParamSqr(macroMax, macroMin, 0, 255, cSpd); // fast to slow
+      gMacroPhase = Cycle(gMacroPhase + $0 * ps);
+      gColor = RGBfromHSV(gMacroPhase, 1, 1);
+    )
+    :(cFx < 256)?
+    (
+      macroMax = 4;  // [Hz]
+      macroMin = 0.6;  // [Hz]
+      ps = ParamSqr(macroMax, macroMin, 0, 255, cSpd); // fast to slow
+      gMacroPhase += $0 * ps;
+      (1 <= gMacroPhase)?
+      (
+        gLastColor = gCurColor;
+        @(gLastColor == gCurColor)
+        (
+          gCurColor = floor(rand() * 19);
+        );
+        gMacroPhase = Cycle(gMacroPhase);
+        gColor = kColorPalletEx[gCurColor];
+      );
+    );
+  )
+  :(cMac < 150)?
+  (
+    // AutoRun1 unsupport
+    gColor = Vec(0,0,0,0);
+  )
+  :(cMac < 200)?
+  (
+    // AutoRun2 unsupport
+    gColor = Vec(0,0,0,0);
+  )
+  :(cMac < 256)?
+  (
+    // SoundActive unsupport
+    gColor = Vec(0,0,0,0);
+  );
+);
+
+Reset#
+(
+  (250 < cRst)?
+  (
+    gColor = Vec(0,0,0,0);
+  )
+);
+
+
+
+// protocol methods
+
+CH#
+(
+  ch = $0;
+  c = $1;
+
+  (pMod == 0)?
+  (
+    cPan = CtlCh16(ch, c, 1, 2);
+    cTit = CtlCh16(ch, c, 3, 4);
+    cTpt = c[ch + 5];
+    cDim = c[ch + 6];
+    cStb = c[ch + 7];
+    cBlk[0].cR = c[ch + 8];
+    cBlk[0].cG = c[ch + 9];
+    cBlk[0].cB = c[ch + 10];
+    cBlk[0].cW = c[ch + 11];
+    cZom = c[ch + 12];
+    cFx = c[ch + 13];
+    cSpd = c[ch + 14];
+    cMac = c[ch + 15];
+    cRst = c[ch + 16];
+  )
+  :
+  (
+    cPan = CtlCh16(ch, c, 1, 2);
+    cTit = CtlCh16(ch, c, 3, 4);
+    cTpt = c[ch + 5];
+    cZom = c[ch + 6];
+    cDim = c[ch + 7];
+    cStb = c[ch + 8];
+
+    i = ch + 9;
+    @(j < 2)
+    (
+      cBlk[j].cR = c[i++];
+      cBlk[j].cG = c[i++];
+      cBlk[j].cB = c[i++];
+      cBlk[j].cW = c[i++];
+      ++j
+    );
+
+    cFx = c[ch + 21];
+    cSpd = c[ch + 22];
+    cMac = c[ch + 23];
+    cRst = c[ch + 24];
+  );
+  CTL = 1;
+);
+
+
+ICH#
+(
+  ch = $0;
+  c = $1;
+
+  (pMod == 0)?
+  (
+    Ch16Ctl(ch, c, 1, 2, cPan);
+    Ch16Ctl(ch, c, 3, 4, cTit);
+    c[ch + 5] = cTpt;
+    c[ch + 6] = cDim;
+    c[ch + 7] = cStb;
+    c[ch + 8] = cBlk[0].cR;
+    c[ch + 9] = cBlk[0].cG;
+    c[ch + 10] = cBlk[0].cB;
+    c[ch + 11] = cBlk[0].cW;
+    c[ch + 12] = cZom;
+    c[ch + 13] = cFx;
+    c[ch + 14] = cSpd;
+    c[ch + 15] = cMac;
+    c[ch + 16] = cRst;
+  )
+  :
+  (
+    Ch16Ctl(ch, c, 1, 2, cPan);
+    Ch16Ctl(ch, c, 3, 4, cTit);
+    c[ch + 5] = cTpt;
+    c[ch + 6] = cZom;
+    c[ch + 7] = cDim;
+    c[ch + 8] = cStb;
+
+    i = ch + 9;
+    @(j < 2)
+    (
+      c[i++] = cBlk[j].cR;
+      c[i++] = cBlk[j].cG;
+      c[i++] = cBlk[j].cB;
+      c[i++] = cBlk[j].cW;
+      ++j
+    );
+
+    c[ch + 21] = cFx;
+    c[ch + 22] = cSpd;
+    c[ch + 23] = cMac;
+    c[ch + 24] = cRst;
+  );
+);
+
+
+UPDATE#
+(
+  dir = PanTiltTime($0);
+
+  ShutterTime($0);
+  DimmerTime($0);
+  ZoomTime($0);
+  ColorTime($0);
+  MacroColor($0);
+  Reset($0);
+  // CtcTime($0);
+
+  // ShutterATime($0);
+  // DimmerATime($0);
+  // ColorATime($0);
+  // FxTime($0);
+
+  PRM?
+  (
+    cMod = pMod;
+    CTLS = 1;
+
+    // setup light
+    l = LIGHT[0];
+    l.pos[1] = kPosY;
+    l.pos[2] = kZFront;
+    l.dia = kDia;
+    LIGHT[0] = l;
+  );
+
+  (dir | PRM)?
+  (
+    PAN = gPan;
+    TILT = 90 + gTilt;
+    SHAPE = MovingShape(kBaseWid, kBaseHi, kHeadWid, kHeadHi, kZFront, kZBack, kCenterHi, PAN, TILT);
+  );
+
+  (
+    fa = ParamLin(10, 60, 1, 0, gZoom);
+    cent = ParamLin(0, 2, 1, 0, gZoom);
+    spread = Spread(cent, 0.1, fa);
+
+    c = VecScale(gColor, kSource * gShutter * gDimmer);
+    c = RGBfromRGBW(c, kWhite);
+
+    // setup light
+    l = LIGHT[0];
+    l.color = c;
+    l.spdh = spread;
+    l.spdv = spread;
+    l.cnt = cent;
+    LIGHT[0] = l;
+  );
+
+  PRM = CTL = 0;
+);
+
+";
+
+
+ctl:
+{
+  controls:
+  {
+    type:mode;
+    id:cMod;
+
+    modes:
+    {
+      controls:
+      {
+        type:numeric;
+        id:cPan;
+        name:Pan;
+        max:"255.9";
+        step:"0.1";
+        prec:1;
+        ini:128;
+      },
+      {
+        type:numeric;
+        id:cTlt;
+        name:Tilt;
+        max:"255.9";
+        step:"0.1";
+        prec:1;
+        ini:128;
+      },
+      {
+        type:numeric;
+        id:cTpt;
+        name:"P/T Time";
+        max:255;
+        ini:255;
+      },
+      {
+        type:numeric;
+        id:cDim;
+        name:Dimmer;
+        max:255;
+        ini:255;
+      },
+      {
+        type:numeric;
+        id:cStb;
+        name:Strobe;
+        max:255;
+        ini:0;
+      },
+      {
+        type:array;
+        id:cBlks;
+        label:Block;
+        elemid:cBlk;
+        base:1;
+
+        fixed:1;
+        min:1;
+        max:1;
+        ini:1;
+
+        controls:
+        {
+          type:numeric;
+          id:cR;
+          name:R;
+          max:255;
+          ini:255;
+        },
+        {
+          type:numeric;
+          id:cG;
+          name:G;
+          max:255;
+          ini:255;
+        },
+        {
+          type:numeric;
+          id:cB;
+          name:B;
+          max:255;
+          ini:255;
+        },
+        {
+          type:numeric;
+          id:cW;
+          name:W;
+          max:255;
+          ini:255;
+        };
+      },
+      {
+        type:numeric;
+        id:cZom;
+        name:Zoom;
+        max:255;
+        ini:0;
+      },
+      {
+        type:numeric;
+        id:cFx;
+        name:Effect;
+        max:255;
+        ini:0;
+      },
+      {
+        type:numeric;
+        id:cSpd;
+        name:Speed;
+        max:255;
+        ini:0;
+      },
+      {
+        type:numeric;
+        id:cMac;
+        name:Macro;
+        max:255;
+        ini:0;
+      },
+      {
+        type:numeric;
+        id:cRst;
+        name:Reset;
+        max:255;
+        ini:0;
+      };
+    },
+    {
+      controls:
+      {
+        type:numeric;
+        id:cPan;
+        name:Pan;
+        max:"255.9";
+        step:"0.1";
+        prec:1;
+        ini:128;
+      },
+      {
+        type:numeric;
+        id:cTlt;
+        name:Tilt;
+        max:"255.9";
+        step:"0.1";
+        prec:1;
+        ini:128;
+      },
+      {
+        type:numeric;
+        id:cTpt;
+        name:"P/T Time";
+        max:255;
+        ini:255;
+      },
+      {
+        type:numeric;
+        id:cZom;
+        name:Zoom;
+        max:255;
+        ini:0;
+      },
+      {
+        type:numeric;
+        id:cDim;
+        name:Dimmer;
+        max:255;
+        ini:255;
+      },
+      {
+        type:numeric;
+        id:cStb;
+        name:Strobe;
+        max:255;
+        ini:0;
+      },
+      {
+        type:array;
+        id:cBlks;
+        label:Block;
+        elemid:cBlk;
+        base:1;
+
+        fixed:1;
+        min:3;
+        max:3;
+        ini:3;
+
+        controls:
+        {
+          type:numeric;
+          id:cR;
+          name:R;
+          max:255;
+          ini:255;
+        },
+        {
+          type:numeric;
+          id:cG;
+          name:G;
+          max:255;
+          ini:255;
+        },
+        {
+          type:numeric;
+          id:cB;
+          name:B;
+          max:255;
+          ini:255;
+        },
+        {
+          type:numeric;
+          id:cW;
+          name:W;
+          max:255;
+          ini:255;
+        };
+      },
+      {
+        type:numeric;
+        id:cFx;
+        name:Effect;
+        max:255;
+        ini:0;
+      },
+      {
+        type:numeric;
+        id:cSpd;
+        name:Speed;
+        max:255;
+        ini:0;
+      },
+      {
+        type:numeric;
+        id:cMac;
+        name:Macro;
+        max:255;
+        ini:0;
+      },
+      {
+        type:numeric;
+        id:cRst;
+        name:Reset;
+        max:255;
+        ini:0;
+      };
+    };
+  };
+};
+
+
+prm:
+{
+  controls:
+  {
+    type:check;
+    id:pRPn;
+    name:"-Pan";
+  },
+  {
+    type:check;
+    id:pRTl;
+    name:"-Tilt";
+  },
+  {
+    type:selector;
+    id:pMod;
+    name:Mode,モード;
+    ini:0;
+    items:
+    {
+      text:16ch;
+      value:0;
+    },
+    {
+      text:24ch;
+      value:1;
+    };
+  };
+};
+
+};

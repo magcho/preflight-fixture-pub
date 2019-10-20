@@ -1,0 +1,727 @@
+plinstrument:
+{
+calc:"
+// based on Ultra Bar 12
+
+#include  strobe
+#include  hsv
+
+// controls
+cMod;
+cMac;
+cSpd;
+cBlk;  // cR, cG, cB
+cDim;
+cStb;
+
+// parameters
+pMod;
+
+// constants
+kDia    =  0.022;
+kPit    =  1.000 / 8;  // (RGB triplet)
+kWid    =  1.000;
+kHi     =  0.065;
+kZBack  = 0.050;
+kZFront = -0.038;
+
+kLits = 8;  // (RGB triplet)
+
+kCnt = 2;
+kSpd = Spread(kCnt, 0.1, 30);  // (field angle?)
+kSource = IllumFaceIl(557 / kLits, 3, kDia, kCnt, kSpd);
+
+
+// protocol parameters
+LIGHT;
+SHAPE;
+CTLS;
+SIMPLE;
+
+PRM=1;
+CTL;
+
+
+// methods
+
+
+// macro
+kMacroMin = 0.1;  // [Hz] (guess)
+kMacroMax = 1;    // [Hz] (guess)
+
+kMacroColor = Vec(
+Vec(0, 0, 0),
+Vec(1, 0, 0),
+Vec(1, 1, 0),
+Vec(0, 1, 0),
+Vec(0, 1, 1),
+Vec(0, 0, 1),
+Vec(1, 0, 1),
+Vec(1, 1, 1)
+);
+
+gRGB;
+gMacroPhase;
+
+
+MacroTime#
+(
+  (pMod < 5)?    // whole
+  (
+    (pMod == 0 |
+     pMod == 3)?  // use macro
+    (
+      (cMac < 9)?  // off
+      (
+      )
+      :
+      (
+        (cMac < 72)?
+        (
+          gRGB = kMacroColor[ floor(cMac / 9) ];
+        )
+        :(cMod == 0)?
+        (
+          (cMac < 256)?  // change
+          (  // (unknown, simple rainbow
+            ps = ParamSqr(kMacroMin, kMacroMax, 0, 255, cSpd);
+            gMacroPhase = Cycle(gMacroPhase + $0 * ps);
+            gRGB = RGBfromHSV(gMacroPhase, 1, 1);
+          );
+        )
+        :(cMod == 3)?
+        (
+          (cMac < 243)?
+          (
+            ps = ParamSqr(kMacroMin, kMacroMax, 0, 255, cSpd);
+            gMacroPhase = Cycle(gMacroPhase + $0 * ps);
+            gRGB = RGBfromHSV(gMacroPhase, 1, 1);
+          )
+          :(cMac < 256)?
+          (
+            rgb = 0;
+          );
+        );
+
+        m = 1;  // use macro
+      );
+    );
+
+    !m?    // no macro
+    (
+      (pMod == 0)?  // no rgb
+      (
+        gRGB = 0;
+      )
+      :
+      (
+        gRGB[0] = cBlk[0].cR / 255;
+        gRGB[1] = cBlk[0].cG / 255;
+        gRGB[2] = cBlk[0].cB / 255;
+      );
+    );
+  );
+);
+
+
+// dimmer
+
+gDimmer;
+
+DimmerTime#
+(
+  (pMod < 2)?
+  (
+    gDimmer = 1;
+  )
+  :
+  (
+    gDimmer = cDim / 255;
+  );
+);
+
+
+// strobe
+kStrobeMin = 1;      // [Hz] (guess)
+kStrobeMax = 10;    // [Hz] (guess)
+kStrobeDur = 1 / 20;  // [s] (guess)
+
+gShutter;
+gStrobe[0];
+
+
+StrobeTime#
+(
+  (pMod <  3 |
+   pMod == 6)?
+  (
+    gShutter = 1;
+  )
+  :
+  (
+    (cStb < 11)?  // no strobe
+    (
+      gShutter = 1;
+    )
+    :
+    (
+      ss = ParamSqr(kStrobeMin, kStrobeMax, 11, 255, cStb);
+      StrobeProgress(gStrobe, $0 * ss, $0 * kStrobeDur);
+      gShutter = gStrobe.ef;
+    );
+  );
+);
+
+
+// protocol methods
+
+CH#
+(
+  ch = $0;
+  c = $1;
+
+  (pMod == 0)?
+  (
+    cMac = c[ch + 1];
+    cSpd = c[ch + 2];
+  )
+  :(pMod == 1)?
+  (
+    cBlk[0].cR = c[ch + 1];
+    cBlk[0].cG = c[ch + 2];
+    cBlk[0].cB = c[ch + 3];
+  )
+  :(pMod == 2)?
+  (
+    cDim = c[ch + 1];
+    cBlk[0].cR = c[ch + 2];
+    cBlk[0].cG = c[ch + 3];
+    cBlk[0].cB = c[ch + 4];
+  )
+  :(pMod == 3)?
+  (
+    cDim = c[ch + 1];
+    cBlk[0].cR = c[ch + 2];
+    cBlk[0].cG = c[ch + 3];
+    cBlk[0].cB = c[ch + 4];
+    cMac = c[ch + 5];
+    cSpd = c[ch + 6];
+    cStb = c[ch + 7];
+  )
+  :(pMod == 4)?
+  (
+    cDim = c[ch + 1];
+    i = ch + 2;
+    @(j < 3)
+    (
+      cBlk[j].cR = c[i++];
+      cBlk[j].cG = c[i++];
+      cBlk[j].cB = c[i++];
+      ++j;
+    );
+  )
+  :(pMod == 5)?
+  (
+    cDim = c[ch + 1];
+    i = ch + 2;
+    @(j < 8)
+    (
+      cBlk[j].cR = c[i++];
+      cBlk[j].cG = c[i++];
+      cBlk[j].cB = c[i++];
+      ++j;
+    );
+  );
+
+  CTL = 1;
+);
+
+
+ICH#
+(
+  ch = $0;
+  c = $1;
+
+  (pMod == 0)?
+  (
+    c[ch + 1] = cMac;
+    c[ch + 2] = cSpd;
+  )
+  :(pMod == 1)?
+  (
+    c[ch + 1] = cBlk[0].cR;
+    c[ch + 2] = cBlk[0].cG;
+    c[ch + 3] = cBlk[0].cB;
+  )
+  :(pMod == 2)?
+  (
+    c[ch + 1] = cDim;
+    c[ch + 2] = cBlk[0].cR;
+    c[ch + 3] = cBlk[0].cG;
+    c[ch + 4] = cBlk[0].cB;
+
+  )
+  :(pMod == 3)?
+  (
+    c[ch + 1] = cDim;
+    c[ch + 2] = cBlk[0].cR;
+    c[ch + 3] = cBlk[0].cG;
+    c[ch + 4] = cBlk[0].cB;
+    c[ch + 5] = cMac;
+    c[ch + 6] = cSpd;
+    c[ch + 7] = cStb;
+
+  )
+  :(pMod == 4)?
+  (
+    c[ch + 1] = cDim;
+
+    i = ch + 2;
+    @(j < 3)
+    (
+      c[i++] = cBlk[j].cR;
+      c[i++] = cBlk[j].cG;
+      c[i++] = cBlk[j].cB;
+      ++j;
+    );
+  )
+  :(pMod == 5)?
+  (
+    c[ch + 1] = cDim;
+
+    i = ch + 2;
+    @(j < 8)
+    (
+      c[i++] = cBlk[j].cR;
+      c[i++] = cBlk[j].cG;
+      c[i++] = cBlk[j].cB;
+      ++j;
+    );
+  )
+  :(pMod == 6)?
+  (
+    j = ch + 1;
+    @(i < 9)
+    (
+      c[j++] = cBlk[i].cR;
+      c[j++] = cBlk[i].cG;
+      c[j++] = cBlk[i].cB;
+      ++i;
+    );
+  );
+);
+
+
+UPDATE#
+(
+  MacroTime($0);
+  DimmerTime($0);
+  StrobeTime($0);
+
+  PRM?
+  (
+    // shape
+    hw = kWid * 0.5;
+    hh = kHi  * 0.5;
+    SHAPE = Box(-hw, hw, -hh, hh, kZBack, kZFront);
+
+    cMod = pMod;
+    CTLS = 1;
+
+    // setup light
+    x = -(kLits - 1) * 0.5 * kPit;
+    @(i < kLits)
+    (
+      l = LIGHT[i];
+      l.pos[0] = x;
+      l.pos[2] = kZFront;
+      l.dia  = kDia;
+      l.spdh = kSpd;
+      l.spdv = kSpd;
+      l.cnt  = kCnt;
+      LIGHT[i] = l;
+      x += kPit;
+      ++i;
+    );
+
+    // simplified
+    sd = SIMPLE[0];
+    sd.pos[2] = kZFront;
+    sd.dia = kDia;
+    sd.spdh = kSpd;
+    sd.spdv = kSpd;
+    sd.cnt = kCnt;
+    sd.filh = kPit * (kLits - 1);
+    sd.slv = SimpleOverlap(kPit, kSpd);
+    sd.ssn = kLits;
+    SIMPLE[0] = sd;
+  );
+
+//  (CTL | PRM)?
+  (
+    // setup light
+    m = kSource * gShutter * gDimmer;
+    i = 0;
+
+    (pMod < 4)?      // whole
+    (
+      c = VecScale(gRGB, m);
+      @(j < kLits)
+      (
+        LIGHT[j++].color = c;
+      );
+      sc = c;
+      ++i;
+    )
+    :(pMod == 4)?    // 4 blocks
+    (
+      m /= 255;
+      @(i < 4)
+      (
+        b = cBlk[i];
+        c = VecScale( Vec(b.cR, b.cG, b.cB), m);
+        LIGHT[j++].color = c;
+        LIGHT[j++].color = c;
+        sc = VecAdd(sc, c);
+        ++i;
+      );
+    )
+    :          // 8 blocks
+    (
+      m /= 255;
+      @(i < 8)
+      (
+        b = cBlk[i];
+        c = VecScale( Vec(b.cR, b.cG, b.cB), m);
+        LIGHT[j++].color = c;
+        sc = VecAdd(sc, c);
+        ++i;
+      );
+    );
+
+    // simplified
+    SIMPLE[0].color = VecScale(sc, 1 / i);
+  );
+
+  PRM = CTL = 0;
+);
+
+";
+
+
+ctl:
+{
+  controls:
+  {
+    type:mode;
+    id:cMod;
+
+    modes:
+    {
+      controls:
+      {
+        type:numeric;
+        id:cMac;
+        name:Macro;
+        max:255;
+        ini:63;
+      },
+      {
+        type:numeric;
+        id:cSpd;
+        name:Speed;
+        max:255;
+        ini:127;
+      };
+    },
+    {
+      controls:
+      {
+        type:array;
+        id:cBlks;
+        label:Block;
+        elemid:cBlk;
+        base:1;
+        elemlabel:" ";
+
+        fixed:1;
+        min:1;
+        max:1;
+        ini:1;
+
+        controls:
+        {
+          type:numeric;
+          id:cR;
+          name:R;
+          max:255;
+          ini:255;
+        },
+        {
+          type:numeric;
+          id:cG;
+          name:G;
+          max:255;
+          ini:255;
+        },
+        {
+          type:numeric;
+          id:cB;
+          name:B;
+          max:255;
+          ini:255;
+        };
+      };
+    },
+    {
+      controls:
+      {
+        type:numeric;
+        id:cDim;
+        name:Dimmer;
+        max:255;
+        ini:255;
+      },
+      {
+        type:array;
+        id:cBlks;
+        label:Block;
+        elemid:cBlk;
+        base:1;
+        elemlabel:" ";
+
+        fixed:1;
+        min:1;
+        max:1;
+        ini:1;
+
+        controls:
+        {
+          type:numeric;
+          id:cR;
+          name:R;
+          max:255;
+          ini:255;
+        },
+        {
+          type:numeric;
+          id:cG;
+          name:G;
+          max:255;
+          ini:255;
+        },
+        {
+          type:numeric;
+          id:cB;
+          name:B;
+          max:255;
+          ini:255;
+        };
+      };
+    },
+    {
+      controls:
+      {
+        type:numeric;
+        id:cDim;
+        name:Dimmer;
+        max:255;
+        ini:255;
+      },
+      {
+        type:array;
+        id:cBlks;
+        label:Block;
+        elemid:cBlk;
+        base:1;
+        elemlabel:" ";
+
+        fixed:1;
+        min:1;
+        max:1;
+        ini:1;
+
+        controls:
+        {
+          type:numeric;
+          id:cR;
+          name:R;
+          max:255;
+          ini:255;
+        },
+        {
+          type:numeric;
+          id:cG;
+          name:G;
+          max:255;
+          ini:255;
+        },
+        {
+          type:numeric;
+          id:cB;
+          name:B;
+          max:255;
+          ini:255;
+        };
+      },
+      {
+        type:numeric;
+        id:cMac;
+        name:Macro;
+        max:255;
+        ini:0;
+      },
+      {
+        type:numeric;
+        id:cSpd;
+        name:Speed;
+        max:255;
+        ini:0;
+      },
+      {
+        type:numeric;
+        id:cStb;
+        name:Strobe;
+        max:255;
+        ini:0;
+      };
+    },
+    {
+      controls:
+      {
+        type:numeric;
+        id:cDim;
+        name:Dimmer;
+        max:255;
+        ini:255;
+      },
+      {
+        type:array;
+        id:cBlks;
+        label:Block;
+        elemid:cBlk;
+        base:1;
+        elemlabel:" ";
+
+        fixed:1;
+        min:4;
+        max:4;
+        ini:4;
+
+        controls:
+        {
+          type:numeric;
+          id:cR;
+          name:R;
+          max:255;
+          ini:255;
+        },
+        {
+          type:numeric;
+          id:cG;
+          name:G;
+          max:255;
+          ini:255;
+        },
+        {
+          type:numeric;
+          id:cB;
+          name:B;
+          max:255;
+          ini:255;
+        };
+      };
+    },
+    {
+      controls:
+      {
+        type:numeric;
+        id:cDim;
+        name:Dimmer;
+        max:255;
+        ini:255;
+      },
+      {
+        type:array;
+        id:cBlks;
+        label:Block;
+        elemid:cBlk;
+        base:1;
+
+        fixed:1;
+        min:8;
+        max:8;
+        ini:8;
+
+        controls:
+        {
+          type:numeric;
+          id:cR;
+          name:R;
+          max:255;
+          ini:255;
+        },
+        {
+          type:numeric;
+          id:cG;
+          name:G;
+          max:255;
+          ini:255;
+        },
+        {
+          type:numeric;
+          id:cB;
+          name:B;
+          max:255;
+          ini:255;
+        };
+      },
+      {
+        type:numeric;
+        id:cStb;
+        name:Strobe;
+        max:255;
+        ini:0;
+      };
+    };
+  };
+};
+
+
+prm:
+{
+  controls:
+  {
+    type:selector;
+    id:pMod;
+    name:Mode,モード;
+    ini:0;
+    items:
+    {
+      text:2ch;
+      value:0;
+    },
+    {
+      text:3ch;
+      value:1;
+    },
+    {
+      text:4ch;
+      value:2;
+    },
+    {
+      text:7ch;
+      value:3;
+    },
+    {
+      text:14ch;
+      value:4;
+    },
+    {
+      text:26ch;
+      value:5;
+    };
+  };
+};
+
+};
