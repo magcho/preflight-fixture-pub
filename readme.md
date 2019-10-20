@@ -4,7 +4,7 @@ Kwatec社のPreflight用のフィクスチャーライブラリの配布。
 
 ## ダウンロード
 
-<b><u>[DOWNLOAD ALL FIXTURE FILES](https://github.com/magcho/preflight-fixture-pub/archive/master.zip)</u></b>
+<b><u>[⬇️ダウンロード⬇️](https://github.com/magcho/preflight-fixture-pub/archive/master.zip)</u></b>
 
 ## 配布中のフィクスチャー
 
