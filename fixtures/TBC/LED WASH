@@ -388,7 +388,8 @@ CH#
   (pMod == 0)?
   (
     cPan = CtlCh16(ch, c, 1, 2);
-    cTit = CtlCh16(ch, c, 3, 4);
+    // cTlt = c[ch + 6];
+    cTlt = CtlCh16(ch, c, 3, 4);
     cTpt = c[ch + 5];
     cDim = c[ch + 6];
     cStb = c[ch + 7];
@@ -405,7 +406,7 @@ CH#
   :
   (
     cPan = CtlCh16(ch, c, 1, 2);
-    cTit = CtlCh16(ch, c, 3, 4);
+    cTlt = CtlCh16(ch, c, 3, 4);
     cTpt = c[ch + 5];
     cZom = c[ch + 6];
     cDim = c[ch + 7];
@@ -438,7 +439,8 @@ ICH#
   (pMod == 0)?
   (
     Ch16Ctl(ch, c, 1, 2, cPan);
-    Ch16Ctl(ch, c, 3, 4, cTit);
+    // c[ch + 6] = cTlt;
+    Ch16Ctl(ch, c, 3, 4, cTlt);
     c[ch + 5] = cTpt;
     c[ch + 6] = cDim;
     c[ch + 7] = cStb;
@@ -455,7 +457,7 @@ ICH#
   :
   (
     Ch16Ctl(ch, c, 1, 2, cPan);
-    Ch16Ctl(ch, c, 3, 4, cTit);
+    Ch16Ctl(ch, c, 3, 4, cTlt);
     c[ch + 5] = cTpt;
     c[ch + 6] = cZom;
     c[ch + 7] = cDim;
@@ -512,7 +514,7 @@ UPDATE#
   (dir | PRM)?
   (
     PAN = gPan;
-    TILT = 90 + gTilt;
+    TILT = 90 + cTlt;
     SHAPE = MovingShape(kBaseWid, kBaseHi, kHeadWid, kHeadHi, kZFront, kZBack, kCenterHi, PAN, TILT);
   );
 
@@ -792,15 +794,15 @@ ctl:
 prm:
 {
   controls:
-	{
-	  type:selector;
-		id:pVer;
-		name:ver;
-		ini:0;
-		items:
-		{
-	    text:"v1.0.0";
-			value:0;
+  {
+    type:selector;
+    id:pVer;
+    name:ver;
+    ini:0;
+    items:
+    {
+      text:"v2";
+      value:0;
     };
   },
   {
