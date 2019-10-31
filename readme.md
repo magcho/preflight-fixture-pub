@@ -12,6 +12,7 @@ Kwatec社のPreflight用のフィクスチャーライブラリの配布。
 - [ePAR38 【Stage Evolution】]()
 - [LED WASH 【ノーブランド】](https://www.aliexpress.com/item/32971455218.html)
 - [Flat par TRI7 【American DJ】]()
+- [LEDPAR](Playtech)
 ```
  fixtures
  ├── STAGE\ EVOLUTION
