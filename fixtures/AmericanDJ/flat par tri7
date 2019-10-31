@@ -1,0 +1,644 @@
+plinstrument:
+{
+
+calc:"
+/*
+version: v1.0.1
+author: magcho
+
+manufacture: American DJ
+name: flat par tri7
+shop: https://www.adj.com/flat-par-tri7
+
+
+
+HISTRY
+v1.0.1 Fix macro ch init value.
+v1.0.0 Release
+*/
+
+// controls
+cMod;
+cMac;
+cDim;
+cR;
+cG;
+cB;
+cStb;
+cPrg;
+
+// parameters
+pMod;
+
+// constants
+//kPosY = 0.000;
+kDia = 0.220;
+//kBaseWid = 0.143;
+//kBaseHi = 0.010;
+//kCenterHi = 0.188;
+kZBack = 0.052;
+kZFront = -0.053;
+//kHeadWid = 0.280;
+//kHeadHi = 0.280;
+kWid = 0.28;
+
+kCnt = kCntPar;
+kSpd = Spread(kCnt, 0.5, 40);
+kSource = IllumFaceIl(355, 3, kDia, kCnt, kSpd);	// (2014/6/18)
+
+kCMac = Vec(
+Vec(0.988, 0.871, 0.847),
+Vec(1.000, 0.745, 0.333),
+Vec(0.988, 0.843, 0.702),
+Vec(0.969, 0.667, 0.310),
+Vec(0.980, 0.659, 0.451),
+Vec(0.961, 0.000, 0.000),
+Vec(0.784, 0.000, 0.235),
+Vec(1.000, 0.627, 0.725),
+Vec(1.000, 0.071, 0.514),
+Vec(1.000, 0.392, 0.784),
+Vec(0.902, 0.667, 0.980),
+Vec(0.784, 0.706, 0.902),
+Vec(0.706, 0.431, 0.941),
+Vec(0.447, 0.000, 1.000),
+Vec(0.400, 0.620, 0.988),
+Vec(0.655, 0.737, 1.000),
+Vec(0.314, 0.682, 0.992),
+Vec(0.078, 0.663, 1.000),
+Vec(0.275, 0.706, 0.941),
+Vec(0.000, 0.639, 0.969),
+Vec(0.000, 0.784, 0.725),
+Vec(0.000, 0.824, 0.902),
+Vec(0.000, 0.282, 1.000),
+Vec(0.314, 0.000, 0.667),
+Vec(0.941, 1.000, 0.729),
+Vec(0.353, 0.863, 0.353),
+Vec(0.294, 0.765, 0.000),
+Vec(0.569, 0.745, 0.961),
+Vec(0.765, 0.882, 0.980),
+Vec(0.765, 0.882, 0.980),
+Vec(0.000, 0.471, 0.784),
+Vec(1.000, 1.000, 1.000));
+
+
+// protocol parameters
+LIGHT;
+SHAPE;
+CTLS;
+
+PRM=1;
+CTL;
+
+
+// methods
+
+CMacro#
+(
+	(cMac < 1)?	// off
+	(
+		0
+	)
+	:
+	(
+		kCMac[floor(cMac / 8)]
+	)
+);
+
+
+Dimmer#
+(
+	cDim / 255
+);
+
+
+RGB#
+(
+	Vec(cR / 255, cG / 255, cB / 255)
+);
+
+
+// shutter
+
+kStrobeMin = 1;		// [Hz]
+kStrobeMax = 10;	// [Hz]
+
+gShutter;
+gShutterCycle;
+
+ShutterTime#
+(
+	(cStb < 16)?	// no strobe
+	(
+		gShutter = 1;
+	)
+	:				// strobe
+	(
+		ss = ParamExp(kStrobeMin, kStrobeMax, 16, 255, cStb);
+		gShutterCycle = Cycle(gShutterCycle + ss * $0);
+		gShutter = (gShutterCycle < 0.5)? 1 : 0;
+	);
+);
+
+
+// program (guess, rainbow)
+
+kProgMin = 0.1;		// [Hz]
+kProgMax = 1;		// [Hz]
+
+gProgCycle;
+
+ProgTime#
+(
+	ps = ParamExp(kProgMin, kProgMax, 0, 255, cStb);
+	gProgCycle = Cycle(gProgCycle + ps * $0);
+);
+
+ValueFromPhase#	// (phase)
+(
+	ph = ($0 < 0.5)? $0 : 1 - $0;	// [0 0.5]
+	max(0, min(1, ph * 6 - 1))		// [0 1]
+);
+
+ProgRGB#
+(	// heu->rgb
+	Vec(ValueFromPhase(gProgCycle),
+		ValueFromPhase(Cycle(gProgCycle + 1 / 3)),
+		ValueFromPhase(Cycle(gProgCycle + 2 / 3)))
+);
+
+
+// protocol methods
+
+CH#
+(
+	ch = $0;
+	c = $1;
+	(pMod == 0)?
+	(
+		cMac = c[ch + 1];
+	)
+	:(pMod == 1)?
+	(
+		cMac = c[ch + 1];
+		cDim = c[ch + 2];
+	)
+	:(pMod == 2)?
+	(
+		cR = c[ch + 1];
+		cG = c[ch + 2];
+		cB = c[ch + 3];
+	)
+	:(pMod == 3)?
+	(
+		cR   = c[ch + 1];
+		cG   = c[ch + 2];
+		cB   = c[ch + 3];
+		cDim = c[ch + 4];
+	)
+	:(pMod == 4)?
+	(
+		cR   = c[ch + 1];
+		cG   = c[ch + 2];
+		cB   = c[ch + 3];
+		cDim = c[ch + 4];
+		cMac = c[ch + 5];
+	)
+	:(pMod == 5)?
+	(
+		cR   = c[ch + 1];
+		cG   = c[ch + 2];
+		cB   = c[ch + 3];
+		cMac = c[ch + 4];
+		cStb = c[ch + 5];
+		cDim = c[ch + 6];
+	)
+	:
+	(
+		cR   = c[ch + 1];
+		cG   = c[ch + 2];
+		cB   = c[ch + 3];
+		cMac = c[ch + 4];
+		cStb = c[ch + 5];
+		cPrg = c[ch + 6];
+		cDim = c[ch + 7];
+	);
+
+	CTL = 1;
+);
+
+ICH#
+(
+	ch = $0;
+	c = $1;
+	(pMod == 0)?
+	(
+		c[ch + 1] = cMac;
+	)
+	:(pMod == 1)?
+	(
+		c[ch + 1] = cMac;
+		c[ch + 2] = cDim;
+	)
+	:(pMod == 2)?
+	(
+		c[ch + 1] = cR;
+		c[ch + 2] = cG;
+		c[ch + 3] = cB;
+	)
+	:(pMod == 3)?
+	(
+		c[ch + 1] = cR  ;
+		c[ch + 2] = cG  ;
+		c[ch + 3] = cB  ;
+		c[ch + 4] = cDim;
+	)
+	:(pMod == 4)?
+	(
+		c[ch + 1] = cR  ;
+		c[ch + 2] = cG  ;
+		c[ch + 3] = cB  ;
+		c[ch + 4] = cDim;
+		c[ch + 5] = cMac;
+	)
+	:(pMod == 5)?
+	(
+		c[ch + 1] = cR  ;
+		c[ch + 2] = cG  ;
+		c[ch + 3] = cB  ;
+		c[ch + 4] = cMac;
+		c[ch + 5] = cStb;
+		c[ch + 6] = cDim;
+	)
+	:
+	(
+		c[ch + 1] = cR  ;
+		c[ch + 2] = cG  ;
+		c[ch + 3] = cB  ;
+		c[ch + 4] = cMac;
+		c[ch + 5] = cStb;
+		c[ch + 6] = cPrg;
+		c[ch + 7] = cDim;
+	);
+);
+
+UPDATE#
+(
+	PRM?
+	(
+		// shape
+		hw = kWid * 0.5;
+		SHAPE = Box(-hw, hw, -hw, hw, kZBack, kZFront);
+
+		cMod = pMod;
+		CTLS = 1;
+	);
+
+	(pMod == 0)?
+	(
+		c = CMacro();
+	)
+	:(pMod == 1)?
+	(
+		c = VecScale(CMacro(), Dimmer());
+	)
+	:(pMod == 2)?
+	(
+		c = RGB();
+	)
+	:(pMod == 3)?
+	(
+		c = VecScale(RGB(), Dimmer());
+	)
+	:(pMod == 4)?
+	(
+		c = (cMac == 0)? RGB() : CMacro();
+		c = VecScale(c, Dimmer());
+	)
+	:(pMod == 5)?
+	(
+		ShutterTime($0);
+		CTL = 1;
+
+		c = (cMac == 0)? RGB() : CMacro();
+		c = VecScale(c, gShutter * Dimmer());
+	)
+	:
+	(
+		(cPrg < 128)?	// no program
+		(
+			ShutterTime($0);
+			CTL = 1;
+
+			c = (cMac == 0)? RGB() : CMacro();
+			c = VecScale(c, gShutter * Dimmer());
+		)
+		:(cPrg < 240)?	// program
+		(
+			ProgTime($0);
+			CTL = 1;
+
+			c = ProgRGB();
+			c = VecScale(c, Dimmer());
+		)
+		:	// sound (unsupport)
+		(
+			// blank
+		);
+	);
+
+	(CTL | PRM)?
+	(
+		// setup light
+		l.color = VecScale(c, kSource);
+		l.pos[2] = kZFront;
+		l.dia = kDia;
+		l.spdh = kSpd;
+		l.spdv = kSpd;
+		l.cnt = kCnt;
+		LIGHT[0] = l;
+	);
+
+	PRM = CTL = 0;
+);
+
+";
+
+
+ctl:
+{
+	controls:
+	{
+		type:mode;
+		id:cMod;
+
+		modes:
+		{
+			controls:
+			{
+				type:numeric;
+				id:cMac;
+				name:Macro,マクロ;
+				max:255;
+				ini:255;
+			};
+		},
+		{
+			controls:
+			{
+				type:numeric;
+				id:cMac;
+				name:Macro,マクロ;
+				max:255;
+				ini:0;
+			},
+			{
+				type:numeric;
+				id:cDim;
+				name:Dimmer,光量;
+				max:255;
+				ini:255;
+			};
+		},
+		{
+			controls:
+			{
+				type:numeric;
+				id:cR;
+				name:R;
+				max:255;
+				ini:255;
+			},
+			{
+				type:numeric;
+				id:cG;
+				name:G;
+				max:255;
+				ini:255;
+			},
+			{
+				type:numeric;
+				id:cB;
+				name:B;
+				max:255;
+				ini:255;
+			};
+		},
+		{
+			controls:
+			{
+				type:numeric;
+				id:cR;
+				name:R;
+				max:255;
+				ini:255;
+			},
+			{
+				type:numeric;
+				id:cG;
+				name:G;
+				max:255;
+				ini:255;
+			},
+			{
+				type:numeric;
+				id:cB;
+				name:B;
+				max:255;
+				ini:255;
+			},
+			{
+				type:numeric;
+				id:cDim;
+				name:Dimmer,光量;
+				max:255;
+				ini:255;
+			};
+		},
+		{
+			controls:
+			{
+				type:numeric;
+				id:cR;
+				name:R;
+				max:255;
+				ini:255;
+			},
+			{
+				type:numeric;
+				id:cG;
+				name:G;
+				max:255;
+				ini:255;
+			},
+			{
+				type:numeric;
+				id:cB;
+				name:B;
+				max:255;
+				ini:255;
+			},
+			{
+				type:numeric;
+				id:cDim;
+				name:Dimmer,光量;
+				max:255;
+				ini:255;
+			},
+			{
+				type:numeric;
+				id:cMac;
+				name:Macro,マクロ;
+				max:255;
+				ini:0;
+			};
+		},
+		{
+			controls:
+			{
+				type:numeric;
+				id:cR;
+				name:R;
+				max:255;
+				ini:255;
+			},
+			{
+				type:numeric;
+				id:cG;
+				name:G;
+				max:255;
+				ini:255;
+			},
+			{
+				type:numeric;
+				id:cB;
+				name:B;
+				max:255;
+				ini:255;
+			},
+			{
+				type:numeric;
+				id:cMac;
+				name:Macro,マクロ;
+				max:255;
+				ini:0;
+			},
+			{
+				type:numeric;
+				id:cStb;
+				name:Strobe,ストロボ;
+				max:255;
+			},
+			{
+				type:numeric;
+				id:cDim;
+				name:Dimmer,光量;
+				max:255;
+				ini:255;
+			};
+		},
+		{
+			controls:
+			{
+				type:numeric;
+				id:cR;
+				name:R;
+				max:255;
+				ini:255;
+			},
+			{
+				type:numeric;
+				id:cG;
+				name:G;
+				max:255;
+				ini:255;
+			},
+			{
+				type:numeric;
+				id:cB;
+				name:B;
+				max:255;
+				ini:255;
+			},
+			{
+				type:numeric;
+				id:cMac;
+				name:Macro,マクロ;
+				max:255;
+				ini:0;
+			},
+			{
+				type:numeric;
+				id:cStb;
+				name:Strobe,ストロボ;
+				max:255;
+			},
+			{
+				type:numeric;
+				id:cPrg;
+				name:Program,プログラム;
+				max:255;
+			},
+			{
+				type:numeric;
+				id:cDim;
+				name:Dimmer,光量;
+				max:255;
+				ini:255;
+			};
+		};
+	};
+};
+
+
+prm:
+{
+	controls:
+	{
+	    type:selector;
+	    id:pVer;
+	    name:Var;
+	    ini:0;
+	    items:
+	    {
+	        text:"v1.0.1";
+	        value:0;
+	    };
+	},
+	{
+		type:selector;
+		id:pMod;
+		name:Mode,モード;
+		ini:3;
+		items:
+		{
+			text:1 ch;
+			value:0;
+		},
+		{
+			text:2 ch;
+			value:1;
+		},
+		{
+			text:3 ch;
+			value:2;
+		},
+		{
+			text:4 ch;
+			value:3;
+		},
+		{
+			text:5 ch;
+			value:4;
+		},
+		{
+			text:6 ch;
+			value:5;
+		},
+		{
+			text:7 ch;
+			value:6;
+		};
+	};
+};
+
+};

@@ -1,0 +1,426 @@
+plinstrument:
+{
+
+calc:"
+/*
+version: v1.0.0
+author: magcho
+
+manufacture: STAGE EVOLUTION
+name: ePAR38
+shop:
+*/
+
+#include  colorconv
+#include  colorwheel
+#include  hsv
+#include  strobe
+
+// controls
+cR;
+cG;
+cB;
+cSpd;
+cMac;
+cFx;
+cDim;
+cMod;
+
+// parameters
+pMod;
+// constants
+kDia = 0.162;
+kZBack = 0.177;
+kZFront = -0.098;
+kWid = 0.195;
+
+kCnt = 1;
+
+kSource = IllumFaceIl(60, 3, kDia, kCnt, Spread(kCnt, 0.1, 80));
+
+
+// protocol parameters
+LIGHT;
+SHAPE;
+CTLS;
+
+PRM=1;
+CTL;
+
+
+// methods
+
+
+// colors
+
+kMacroMin = 0.1;  // [Hz] (guess)
+kMacroMax = 1;    // [Hz] (guess)
+
+kMacroColor3 = Vec(
+	Vec(1,0,0),
+	Vec(0,1,0),
+	Vec(0,0,1)
+);
+
+kMacroColor7 = Vec(
+Vec(1, 0, 0),
+Vec(1, 1, 0),
+Vec(0, 1, 0),
+Vec(0, 1, 1),
+Vec(0, 0, 1),
+Vec(1, 0, 1),
+Vec(1, 1, 1)
+);
+
+gRGB;
+gMacroPhase;
+
+gColor;
+gLastColor;
+gCurColor;
+
+ColorMacro#
+(
+	(cMod == 0)?
+	(
+		gColor = Vec(cR /255, cG/255, cB/255);
+	)
+	:
+	(
+		(cMac < 32)?
+		(
+			gColor = Vec(cR /255, cG/255, cB/255);
+		)
+		:(cMac < 64)?
+		(
+			// パルスエフェクト 0% – 100%
+			cs = ParamSqr(kProgMin, kProgMax, 0, 255, cSpd);
+			gProgCycle = Cycle(gProgCycle + $0 * cs);
+			gColor = RGBfromHSV(gProgCycle, 1, 1);
+
+		)
+		:(cMac < 96)?
+		(
+			// パルスエフェクト 100% - 0%
+			cs = ParamSqr(kProgMin, kProgMax, 0, 255, cSpd);
+			gProgCycle = Cycle(gProgCycle + $0 * cs);
+			gColor = RGBfromHSV(gProgCycle, 1, 1);
+
+		)
+		:(cMac < 128)?
+		(
+			// パルスエフェクト 100% - 0%
+			cs = ParamSqr(kProgMin, kProgMax, 0, 255, cSpd);
+			gProgCycle = Cycle(gProgCycle + $0 * cs);
+			gColor = RGBfromHSV(gProgCycle, 1, 1);
+
+		)
+		:(cMac < 160)?
+		(
+			// フェードモード
+			cs = ParamSqr(kProgMin, kProgMax, 0, 255, cSpd);
+			gProgCycle = Cycle(gProgCycle + $0 * cs);
+			gColor = RGBfromHSV(gProgCycle, 1, 1);
+
+		)
+		:(cMac < 192)?
+		(
+			// 3 色カラーチェンジ
+			ps = ParamSqr(kProgMin, kProgMax, 0, 255, cSpd); // fast to slow
+      gMacroPhase += $0 * ps;
+      (1 <= gMacroPhase)?
+      (
+        gLastColor = gCurColor;
+        @(gLastColor == gCurColor)
+        (
+          gCurColor = floor(rand() * 3);
+        );
+        gMacroPhase = Cycle(gMacroPhase);
+        gColor = kMacroColor3[gCurColor];
+      );
+		)
+		:(cMac < 224)?
+		(
+			// 7 色カラーチェンジ
+			ps = ParamSqr(kProgMin, kProgMax, 0, 255, cSpd); // fast to slow
+			gMacroPhase += $0 * ps;
+			(1 <= gMacroPhase)?
+			(
+				gLastColor = gCurColor;
+				@(gLastColor == gCurColor)
+				(
+					gCurColor = floor(rand() * 7);
+				);
+				gMacroPhase = Cycle(gMacroPhase);
+				gColor = kMacroColor7[gCurColor];
+			);
+		)
+		:(cMac < 256)?
+		(
+			// サウンドアクティブ
+			// unsupport
+			ps = ParamSqr(kProgMin, kProgMax, 0, 255, cSpd); // fast to slow
+			gMacroPhase += $0 * ps;
+			(1 <= gMacroPhase)?
+			(
+				gLastColor = gCurColor;
+				@(gLastColor == gCurColor)
+				(
+					gCurColor = floor(rand() * 7);
+				);
+				gMacroPhase = Cycle(gMacroPhase);
+				gColor = kMacroColor7[gCurColor];
+			);
+		);
+	);
+);
+
+
+
+// dimmer
+
+kDimmerSlowTc = 0.2;
+
+// shutter
+
+kStrobeMin = 0.8;		// [Hz] (guess)
+kStrobeMax = 8;			// [Hz] (guess)
+kStrobeDur = 1 / 30;  // [s] (guess)
+
+gShutter;
+gShutterCycle;
+
+gDimmer;
+gStrobe;
+
+ShutterTime#
+(
+	(cMod == 0)?
+	(
+		gShutter = gDimmer = 1;
+	):
+	(
+		gDimmer = cDim/255;
+
+		(cSpd < 16)?	// open
+		(
+			gShutter = 1;
+		)
+		:				// strobe
+		(
+			ss = ParamSqr(kStrobeMin, kStrobeMax, 16, 255, cSpd);
+	    StrobeProgress(gStrobe, $0 * ss, $0 * kStrobeDur);
+	    gShutter = gStrobe.ef;
+		);
+	);
+);
+
+
+// protocol methods
+
+CH#
+(
+	ch = $0;
+	c = $1;
+
+	(pMod == 0)?
+	(
+		cR   = c[ch + 1];
+		cG   = c[ch + 2];
+		cB   = c[ch + 3];
+	)
+	:
+	(
+		cR   = c[ch + 1];
+		cG   = c[ch + 2];
+		cB   = c[ch + 3];
+		cMac = c[ch + 4];
+		cSpd = c[ch + 5];
+		cFx  = c[ch + 6];
+		cDim = c[ch + 7];
+	);
+
+
+
+	CTL = 1;
+);
+
+ICH#
+(
+	ch = $0;
+	c = $1;
+
+	(pMod == 0)?
+	(
+		c[ch + 1] = cR;
+		c[ch + 2] = cG;
+		c[ch + 3] = cB;
+	)
+	:
+	(
+		c[ch + 1] = cR;
+		c[ch + 2] = cG;
+		c[ch + 3] = cB;
+		c[ch + 4] = cMac;
+		c[ch + 5] = cSpd;
+		c[ch + 6] = cFx;
+		c[ch + 7] = cDim;
+	);
+);
+
+UPDATE#
+(
+	ColorMacro($0);
+	ShutterTime($0);
+
+	PRM?
+	(
+		cMod = pMod;
+		CTLS = 1;
+
+		// shape
+		hw = kWid * 0.5;
+		SHAPE = Box(-hw, hw, -hw, hw, kZBack, kZFront);
+	);
+
+	c = gColor;
+	c = VecScale(c, gDimmer * gShutter);
+
+//	(CTL | PRM)?
+	(
+		spd = Spread(kCnt, 0.1, 23);
+
+		// setup light
+		// l.color = Vec(1,1,1);
+		l = LIGHT[0];
+		l.color = VecScale(c, kSource);
+		l.dia  = kDia;
+		l.spdh = spd;
+		l.spdv = spd;
+		l.cnt  = kCnt;
+		LIGHT[0] = l;
+	);
+
+	PRM = CTL = 0;
+);
+
+";
+
+
+ctl:
+{
+	controls:
+	{
+		type:mode;
+		id:cMod;
+
+		modes:
+		{
+			controls:
+			{
+				type:numeric;
+				id:cR;
+				name:R;
+				max:255;
+				ini:255;
+			},
+			{
+				type:numeric;
+				id:cG;
+				name:G;
+				max:255;
+				ini:255;
+			},
+			{
+				type:numeric;
+				id:cB;
+				name:B;
+				max:255;
+				ini:255;
+			};
+		},
+		{
+			controls:
+			{
+				type:numeric;
+				id:cR;
+				name:R;
+				max:255;
+				ini:255;
+			},
+			{
+				type:numeric;
+				id:cG;
+				name:G;
+				max:255;
+				ini:255;
+			},
+			{
+				type:numeric;
+				id:cB;
+				name:B;
+				max:255;
+				ini:255;
+			},
+			{
+				type:numeric;
+				id:cMac;
+				name:Macro;
+				max:255;
+			},
+			{
+				type:numeric;
+				id:cSpd;
+				name:Speed;
+				max:255;
+			},
+			{
+				type:numeric;
+				id:cFx;
+				name:Fx;
+				max:255;
+			},
+			{
+				type:numeric;
+				id:cDim;
+				name:Dimmer;
+				max:255;
+				ini:255;
+			};
+		};
+	};
+};
+
+
+prm:
+{
+	controls:
+	{
+    type:selector;
+    id:pVer;
+    name:ver;
+    ini:0;
+    items:
+    {
+      text:"v0.0.1";
+      value:0;
+    };
+  },
+	{
+		type:selector;
+		id:pMod;
+		name:Mode,モード;
+		ini:0;
+		items:
+		{
+			text:3 ch;
+			value:0;
+		},
+		{
+			text:7 ch;
+			value:1;
+		};
+	};
+};
+
+};

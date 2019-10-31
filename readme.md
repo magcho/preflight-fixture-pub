@@ -9,8 +9,9 @@ Kwatec社のPreflight用のフィクスチャーライブラリの配布。
 ## 配布中のフィクスチャー
 
 - [COLORBARLEDⅡ 【Stage Evolutoin】](https://www.soundhouse.co.jp/products/detail/item/212382/)
+- [ePAR38 【Stage Evolution】]()
 - [LED WASH 【ノーブランド】](https://www.aliexpress.com/item/32971455218.html)
-
+- [Flat par TRI7 【American DJ】]()
 ```
  fixtures
  ├── STAGE\ EVOLUTION
