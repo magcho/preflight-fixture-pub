@@ -222,6 +222,8 @@ CH#
 		cR   = c[ch + 1];
 		cG   = c[ch + 2];
 		cB   = c[ch + 3];
+		cDim   = c[ch + 4];
+		cSpd   = c[ch + 5];
 	)
 	:
 	(
@@ -249,6 +251,8 @@ ICH#
 		c[ch + 1] = cR;
 		c[ch + 2] = cG;
 		c[ch + 3] = cB;
+		c[ch + 4] = cDim;
+		c[ch + 5] = cSpd;
 	)
 	:
 	(
